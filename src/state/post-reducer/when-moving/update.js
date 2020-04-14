@@ -25,6 +25,7 @@ type Args = {|
   impact?: ?DragImpact,
   // provide a scroll jump request (optionally provided - and can be null)
   scrollJumpRequest?: ?Position,
+  combineThresholdDivisor?: number,
 |};
 
 export default ({
@@ -34,6 +35,7 @@ export default ({
   viewport: forcedViewport,
   impact: forcedImpact,
   scrollJumpRequest,
+  combineThresholdDivisor,
 }: Args): StateWhenUpdatesAllowed => {
   // DRAGGING: can update position and impact
   // COLLECTING: can update position but cannot update impact
@@ -84,7 +86,9 @@ export default ({
     forcedImpact ||
     getDragImpact({
       pageOffset: page.offset,
+      pageSelection: page.selection,
       draggable,
+      combineThresholdDivisor,
       draggables: dimensions.draggables,
       droppables: dimensions.droppables,
       previousImpact: state.impact,

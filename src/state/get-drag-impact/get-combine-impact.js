@@ -1,5 +1,5 @@
 // @flow
-import type { Rect } from 'css-box-model';
+import type { Rect, Position } from 'css-box-model';
 import type {
   DraggableId,
   Axis,
@@ -17,23 +17,23 @@ import removeDraggableFromList from '../remove-draggable-from-list';
 
 type Args = {|
   draggable: DraggableDimension,
-  pageBorderBoxWithDroppableScroll: Rect,
+  pageSelection: Position,
+  pageSelection: Position,
   previousImpact: DragImpact,
   destination: DroppableDimension,
   insideDestination: DraggableDimension[],
   afterCritical: LiftEffect,
+  combineThresholdDivisor?: number,
 |};
-
-// exported for testing
-export const combineThresholdDivisor: number = 8;
 
 export default ({
   draggable,
-  pageBorderBoxWithDroppableScroll: targetRect,
+  pageSelection,
   previousImpact,
   destination,
   insideDestination,
   afterCritical,
+  combineThresholdDivisor = 4,
 }: Args): ?DragImpact => {
   if (!destination.isCombineEnabled) {
     return null;
@@ -45,8 +45,7 @@ export default ({
   );
   const displacement: number = displacedBy.value;
 
-  const targetStart: number = targetRect[axis.start];
-  const targetEnd: number = targetRect[axis.end];
+  const targetLine: number = pageSelection[axis.line];
 
   const withoutDragging: DraggableDimension[] = removeDraggableFromList(
     draggable,
@@ -81,31 +80,31 @@ export default ({
         // Will combine with item when inside a band
         if (isDisplaced) {
           return (
-            targetEnd > childRect[axis.start] + threshold &&
-            targetEnd < childRect[axis.end] - threshold
+            targetLine > childRect[axis.start] + threshold &&
+            targetLine < childRect[axis.end] - threshold
           );
         }
 
         // child is now 'displaced' backwards from where it started
         // want to combine when we move backwards onto it
         return (
-          targetStart > childRect[axis.start] - displacement + threshold &&
-          targetStart < childRect[axis.end] - displacement - threshold
+          targetLine > childRect[axis.start] - displacement + threshold &&
+          targetLine < childRect[axis.end] - displacement - threshold
         );
       }
 
       // item has moved forwards
       if (isDisplaced) {
         return (
-          targetEnd > childRect[axis.start] + displacement + threshold &&
-          targetEnd < childRect[axis.end] + displacement - threshold
+          targetLine > childRect[axis.start] + displacement + threshold &&
+          targetLine < childRect[axis.end] + displacement - threshold
         );
       }
 
       // is in resting position - being moved backwards on to
       return (
-        targetStart > childRect[axis.start] + threshold &&
-        targetStart < childRect[axis.end] - threshold
+        targetLine > childRect[axis.start] + threshold &&
+        targetLine < childRect[axis.end] - threshold
       );
     },
   );

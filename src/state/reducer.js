@@ -70,388 +70,391 @@ function removeScrollJumpRequest(state: State): State {
 
 const idle: IdleState = { phase: 'IDLE', completed: null, shouldFlush: false };
 
-export default (state: State = idle, action: Action): State => {
-  if (action.type === 'FLUSH') {
-    return {
-      ...idle,
-      shouldFlush: true,
-    };
-  }
-
-  if (action.type === 'INITIAL_PUBLISH') {
-    invariant(
-      state.phase === 'IDLE',
-      'INITIAL_PUBLISH must come after a IDLE phase',
-    );
-    const {
-      critical,
-      clientSelection,
-      viewport,
-      dimensions,
-      movementMode,
-    } = action.payload;
-
-    const draggable: DraggableDimension =
-      dimensions.draggables[critical.draggable.id];
-    const home: DroppableDimension =
-      dimensions.droppables[critical.droppable.id];
-
-    const client: ClientPositions = {
-      selection: clientSelection,
-      borderBoxCenter: draggable.client.borderBox.center,
-      offset: origin,
-    };
-
-    const initial: DragPositions = {
-      client,
-      page: {
-        selection: add(client.selection, viewport.scroll.initial),
-        borderBoxCenter: add(client.selection, viewport.scroll.initial),
-        offset: add(client.selection, viewport.scroll.diff.value),
-      },
-    };
-
-    // Can only auto scroll the window if every list is not fixed on the page
-    const isWindowScrollAllowed: boolean = toDroppableList(
-      dimensions.droppables,
-    ).every((item: DroppableDimension) => !item.isFixedOnPage);
-
-    const { impact, afterCritical } = getLiftEffect({
-      draggable,
-      home,
-      draggables: dimensions.draggables,
-      viewport,
-    });
-
-    const result: DraggingState = {
-      phase: 'DRAGGING',
-      isDragging: true,
-      critical,
-      movementMode,
-      dimensions,
-      initial,
-      current: initial,
-      isWindowScrollAllowed,
-      impact,
-      afterCritical,
-      onLiftImpact: impact,
-      viewport,
-      scrollJumpRequest: null,
-      forceShouldAnimate: null,
-    };
-
-    return result;
-  }
-
-  if (action.type === 'COLLECTION_STARTING') {
-    // A collection might have restarted. We do not care as we are already in the right phase
-    // TODO: remove?
-    if (state.phase === 'COLLECTING' || state.phase === 'DROP_PENDING') {
-      return state;
+export default function getReducer(combineThresholdDivisor?: number = 4) {
+  return (state: State = idle, action: Action): State => {
+    if (action.type === 'FLUSH') {
+      return {
+        ...idle,
+        shouldFlush: true,
+      };
     }
 
-    invariant(
-      state.phase === 'DRAGGING',
-      `Collection cannot start from phase ${state.phase}`,
-    );
+    if (action.type === 'INITIAL_PUBLISH') {
+      invariant(
+        state.phase === 'IDLE',
+        'INITIAL_PUBLISH must come after a IDLE phase',
+      );
+      const {
+        critical,
+        clientSelection,
+        viewport,
+        dimensions,
+        movementMode,
+      } = action.payload;
 
-    const result: CollectingState = {
-      // putting phase first to appease flow
-      phase: 'COLLECTING',
-      ...state,
-      // eslint-disable-next-line
-      phase: 'COLLECTING',
-    };
+      const draggable: DraggableDimension =
+        dimensions.draggables[critical.draggable.id];
+      const home: DroppableDimension =
+        dimensions.droppables[critical.droppable.id];
 
-    return result;
-  }
+      const client: ClientPositions = {
+        selection: clientSelection,
+        borderBoxCenter: draggable.client.borderBox.center,
+        offset: origin,
+      };
 
-  if (action.type === 'PUBLISH_WHILE_DRAGGING') {
-    // Unexpected bulk publish
-    invariant(
-      state.phase === 'COLLECTING' || state.phase === 'DROP_PENDING',
-      `Unexpected ${action.type} received in phase ${state.phase}`,
-    );
+      const initial: DragPositions = {
+        client,
+        page: {
+          selection: add(client.selection, viewport.scroll.initial),
+          borderBoxCenter: add(client.selection, viewport.scroll.initial),
+          offset: add(client.selection, viewport.scroll.diff.value),
+        },
+      };
 
-    return publishWhileDraggingInVirtual({
-      state,
-      published: action.payload,
-    });
-  }
+      // Can only auto scroll the window if every list is not fixed on the page
+      const isWindowScrollAllowed: boolean = toDroppableList(
+        dimensions.droppables,
+      ).every((item: DroppableDimension) => !item.isFixedOnPage);
 
-  if (action.type === 'MOVE') {
-    // Not allowing any more movements
-    if (state.phase === 'DROP_PENDING') {
-      return state;
+      const { impact, afterCritical } = getLiftEffect({
+        draggable,
+        home,
+        draggables: dimensions.draggables,
+        viewport,
+      });
+
+      const result: DraggingState = {
+        phase: 'DRAGGING',
+        isDragging: true,
+        critical,
+        movementMode,
+        dimensions,
+        initial,
+        current: initial,
+        isWindowScrollAllowed,
+        impact,
+        afterCritical,
+        onLiftImpact: impact,
+        viewport,
+        scrollJumpRequest: null,
+        forceShouldAnimate: null,
+      };
+
+      return result;
     }
 
-    invariant(
-      isMovementAllowed(state),
-      `${action.type} not permitted in phase ${state.phase}`,
-    );
+    if (action.type === 'COLLECTION_STARTING') {
+      // A collection might have restarted. We do not care as we are already in the right phase
+      // TODO: remove?
+      if (state.phase === 'COLLECTING' || state.phase === 'DROP_PENDING') {
+        return state;
+      }
 
-    const { client: clientSelection } = action.payload;
+      invariant(
+        state.phase === 'DRAGGING',
+        `Collection cannot start from phase ${state.phase}`,
+      );
 
-    // nothing needs to be done
-    if (isEqual(clientSelection, state.current.client.selection)) {
-      return state;
+      const result: CollectingState = {
+        // putting phase first to appease flow
+        phase: 'COLLECTING',
+        ...state,
+        // eslint-disable-next-line
+        phase: 'COLLECTING',
+      };
+
+      return result;
     }
 
-    return update({
-      state,
-      clientSelection,
-      // If we are snap moving - manual movements should not update the impact
-      impact: isSnapping(state) ? state.impact : null,
-    });
-  }
+    if (action.type === 'PUBLISH_WHILE_DRAGGING') {
+      // Unexpected bulk publish
+      invariant(
+        state.phase === 'COLLECTING' || state.phase === 'DROP_PENDING',
+        `Unexpected ${action.type} received in phase ${state.phase}`,
+      );
 
-  if (action.type === 'UPDATE_DROPPABLE_SCROLL') {
-    // Not allowing changes while a drop is pending
-    // Cannot get this during a DROP_ANIMATING as the dimension
-    // marshal will cancel any pending scroll updates
-    if (state.phase === 'DROP_PENDING') {
-      return removeScrollJumpRequest(state);
+      return publishWhileDraggingInVirtual({
+        state,
+        published: action.payload,
+      });
     }
 
-    // We will be updating the scroll in response to dynamic changes
-    // manually on the droppable so we can ignore this change
-    if (state.phase === 'COLLECTING') {
-      return removeScrollJumpRequest(state);
+    if (action.type === 'MOVE') {
+      // Not allowing any more movements
+      if (state.phase === 'DROP_PENDING') {
+        return state;
+      }
+
+      invariant(
+        isMovementAllowed(state),
+        `${action.type} not permitted in phase ${state.phase}`,
+      );
+
+      const { client: clientSelection } = action.payload;
+
+      // nothing needs to be done
+      if (isEqual(clientSelection, state.current.client.selection)) {
+        return state;
+      }
+
+      return update({
+        state,
+        clientSelection,
+        combineThresholdDivisor,
+        // If we are snap moving - manual movements should not update the impact
+        impact: isSnapping(state) ? state.impact : null,
+      });
     }
 
-    invariant(
-      isMovementAllowed(state),
-      `${action.type} not permitted in phase ${state.phase}`,
-    );
+    if (action.type === 'UPDATE_DROPPABLE_SCROLL') {
+      // Not allowing changes while a drop is pending
+      // Cannot get this during a DROP_ANIMATING as the dimension
+      // marshal will cancel any pending scroll updates
+      if (state.phase === 'DROP_PENDING') {
+        return removeScrollJumpRequest(state);
+      }
 
-    const { id, newScroll } = action.payload;
-    const target: ?DroppableDimension = state.dimensions.droppables[id];
+      // We will be updating the scroll in response to dynamic changes
+      // manually on the droppable so we can ignore this change
+      if (state.phase === 'COLLECTING') {
+        return removeScrollJumpRequest(state);
+      }
 
-    // This is possible if a droppable has been asked to watch scroll but
-    // the dimension has not been published yet
-    if (!target) {
-      return state;
+      invariant(
+        isMovementAllowed(state),
+        `${action.type} not permitted in phase ${state.phase}`,
+      );
+
+      const { id, newScroll } = action.payload;
+      const target: ?DroppableDimension = state.dimensions.droppables[id];
+
+      // This is possible if a droppable has been asked to watch scroll but
+      // the dimension has not been published yet
+      if (!target) {
+        return state;
+      }
+
+      const scrolled: DroppableDimension = scrollDroppable(target, newScroll);
+      return postDroppableChange(state, scrolled, false);
     }
 
-    const scrolled: DroppableDimension = scrollDroppable(target, newScroll);
-    return postDroppableChange(state, scrolled, false);
-  }
+    if (action.type === 'UPDATE_DROPPABLE_IS_ENABLED') {
+      // Things are locked at this point
+      if (state.phase === 'DROP_PENDING') {
+        return state;
+      }
 
-  if (action.type === 'UPDATE_DROPPABLE_IS_ENABLED') {
-    // Things are locked at this point
-    if (state.phase === 'DROP_PENDING') {
-      return state;
+      invariant(
+        isMovementAllowed(state),
+        `Attempting to move in an unsupported phase ${state.phase}`,
+      );
+
+      const { id, isEnabled } = action.payload;
+      const target: ?DroppableDimension = state.dimensions.droppables[id];
+
+      invariant(
+        target,
+        `Cannot find Droppable[id: ${id}] to toggle its enabled state`,
+      );
+
+      invariant(
+        target.isEnabled !== isEnabled,
+        `Trying to set droppable isEnabled to ${String(isEnabled)}
+        but it is already ${String(target.isEnabled)}`,
+      );
+
+      const updated: DroppableDimension = {
+        ...target,
+        isEnabled,
+      };
+
+      return postDroppableChange(state, updated, true);
     }
 
-    invariant(
-      isMovementAllowed(state),
-      `Attempting to move in an unsupported phase ${state.phase}`,
-    );
+    if (action.type === 'UPDATE_DROPPABLE_IS_COMBINE_ENABLED') {
+      // Things are locked at this point
+      if (state.phase === 'DROP_PENDING') {
+        return state;
+      }
 
-    const { id, isEnabled } = action.payload;
-    const target: ?DroppableDimension = state.dimensions.droppables[id];
+      invariant(
+        isMovementAllowed(state),
+        `Attempting to move in an unsupported phase ${state.phase}`,
+      );
 
-    invariant(
-      target,
-      `Cannot find Droppable[id: ${id}] to toggle its enabled state`,
-    );
+      const { id, isCombineEnabled } = action.payload;
+      const target: ?DroppableDimension = state.dimensions.droppables[id];
 
-    invariant(
-      target.isEnabled !== isEnabled,
-      `Trying to set droppable isEnabled to ${String(isEnabled)}
-      but it is already ${String(target.isEnabled)}`,
-    );
+      invariant(
+        target,
+        `Cannot find Droppable[id: ${id}] to toggle its isCombineEnabled state`,
+      );
 
-    const updated: DroppableDimension = {
-      ...target,
-      isEnabled,
-    };
+      invariant(
+        target.isCombineEnabled !== isCombineEnabled,
+        `Trying to set droppable isCombineEnabled to ${String(isCombineEnabled)}
+        but it is already ${String(target.isCombineEnabled)}`,
+      );
 
-    return postDroppableChange(state, updated, true);
-  }
+      const updated: DroppableDimension = {
+        ...target,
+        isCombineEnabled,
+      };
 
-  if (action.type === 'UPDATE_DROPPABLE_IS_COMBINE_ENABLED') {
-    // Things are locked at this point
-    if (state.phase === 'DROP_PENDING') {
-      return state;
+      return postDroppableChange(state, updated, true);
     }
 
-    invariant(
-      isMovementAllowed(state),
-      `Attempting to move in an unsupported phase ${state.phase}`,
-    );
+    if (action.type === 'MOVE_BY_WINDOW_SCROLL') {
+      // No longer accepting changes
+      if (state.phase === 'DROP_PENDING' || state.phase === 'DROP_ANIMATING') {
+        return state;
+      }
 
-    const { id, isCombineEnabled } = action.payload;
-    const target: ?DroppableDimension = state.dimensions.droppables[id];
+      invariant(
+        isMovementAllowed(state),
+        `Cannot move by window in phase ${state.phase}`,
+      );
 
-    invariant(
-      target,
-      `Cannot find Droppable[id: ${id}] to toggle its isCombineEnabled state`,
-    );
+      invariant(
+        state.isWindowScrollAllowed,
+        'Window scrolling is currently not supported for fixed lists',
+      );
 
-    invariant(
-      target.isCombineEnabled !== isCombineEnabled,
-      `Trying to set droppable isCombineEnabled to ${String(isCombineEnabled)}
-      but it is already ${String(target.isCombineEnabled)}`,
-    );
+      const newScroll: Position = action.payload.newScroll;
 
-    const updated: DroppableDimension = {
-      ...target,
-      isCombineEnabled,
-    };
+      // nothing needs to be done
+      if (isEqual(state.viewport.scroll.current, newScroll)) {
+        return removeScrollJumpRequest(state);
+      }
 
-    return postDroppableChange(state, updated, true);
-  }
+      const viewport: Viewport = scrollViewport(state.viewport, newScroll);
 
-  if (action.type === 'MOVE_BY_WINDOW_SCROLL') {
-    // No longer accepting changes
-    if (state.phase === 'DROP_PENDING' || state.phase === 'DROP_ANIMATING') {
-      return state;
-    }
+      if (isSnapping(state)) {
+        return refreshSnap({
+          state,
+          viewport,
+        });
+      }
 
-    invariant(
-      isMovementAllowed(state),
-      `Cannot move by window in phase ${state.phase}`,
-    );
-
-    invariant(
-      state.isWindowScrollAllowed,
-      'Window scrolling is currently not supported for fixed lists',
-    );
-
-    const newScroll: Position = action.payload.newScroll;
-
-    // nothing needs to be done
-    if (isEqual(state.viewport.scroll.current, newScroll)) {
-      return removeScrollJumpRequest(state);
-    }
-
-    const viewport: Viewport = scrollViewport(state.viewport, newScroll);
-
-    if (isSnapping(state)) {
-      return refreshSnap({
+      return update({
         state,
         viewport,
       });
     }
 
-    return update({
-      state,
-      viewport,
-    });
-  }
+    if (action.type === 'UPDATE_VIEWPORT_MAX_SCROLL') {
+      // Could occur if a transitionEnd occurs after a drag ends
+      if (!isMovementAllowed(state)) {
+        return state;
+      }
 
-  if (action.type === 'UPDATE_VIEWPORT_MAX_SCROLL') {
-    // Could occur if a transitionEnd occurs after a drag ends
-    if (!isMovementAllowed(state)) {
-      return state;
+      const maxScroll: Position = action.payload.maxScroll;
+
+      if (isEqual(maxScroll, state.viewport.scroll.max)) {
+        return state;
+      }
+
+      const withMaxScroll: Viewport = {
+        ...state.viewport,
+        scroll: {
+          ...state.viewport.scroll,
+          max: maxScroll,
+        },
+      };
+
+      // don't need to recalc any updates
+      return {
+        // phase will be overridden - appeasing flow
+        phase: 'DRAGGING',
+        ...state,
+        viewport: withMaxScroll,
+      };
+    }
+    if (
+      action.type === 'MOVE_UP' ||
+      action.type === 'MOVE_DOWN' ||
+      action.type === 'MOVE_LEFT' ||
+      action.type === 'MOVE_RIGHT'
+    ) {
+      // Not doing keyboard movements during these phases
+      if (state.phase === 'COLLECTING' || state.phase === 'DROP_PENDING') {
+        return state;
+      }
+
+      invariant(
+        state.phase === 'DRAGGING',
+        `${action.type} received while not in DRAGGING phase`,
+      );
+
+      const result: ?MoveInDirectionResult = moveInDirection({
+        state,
+        type: action.type,
+      });
+
+      // cannot move in that direction
+      if (!result) {
+        return state;
+      }
+
+      return update({
+        state,
+        impact: result.impact,
+        clientSelection: result.clientSelection,
+        scrollJumpRequest: result.scrollJumpRequest,
+      });
     }
 
-    const maxScroll: Position = action.payload.maxScroll;
+    if (action.type === 'DROP_PENDING') {
+      const reason: DropReason = action.payload.reason;
+      invariant(
+        state.phase === 'COLLECTING',
+        'Can only move into the DROP_PENDING phase from the COLLECTING phase',
+      );
 
-    if (isEqual(maxScroll, state.viewport.scroll.max)) {
-      return state;
+      const newState: DropPendingState = {
+        // appeasing flow
+        phase: 'DROP_PENDING',
+        ...state,
+        // eslint-disable-next-line
+        phase: 'DROP_PENDING',
+        isWaiting: true,
+        reason,
+      };
+      return newState;
     }
 
-    const withMaxScroll: Viewport = {
-      ...state.viewport,
-      scroll: {
-        ...state.viewport.scroll,
-        max: maxScroll,
-      },
-    };
+    if (action.type === 'DROP_ANIMATE') {
+      const { completed, dropDuration, newHomeClientOffset } = action.payload;
+      invariant(
+        state.phase === 'DRAGGING' || state.phase === 'DROP_PENDING',
+        `Cannot animate drop from phase ${state.phase}`,
+      );
 
-    // don't need to recalc any updates
-    return {
-      // phase will be overridden - appeasing flow
-      phase: 'DRAGGING',
-      ...state,
-      viewport: withMaxScroll,
-    };
-  }
-  if (
-    action.type === 'MOVE_UP' ||
-    action.type === 'MOVE_DOWN' ||
-    action.type === 'MOVE_LEFT' ||
-    action.type === 'MOVE_RIGHT'
-  ) {
-    // Not doing keyboard movements during these phases
-    if (state.phase === 'COLLECTING' || state.phase === 'DROP_PENDING') {
-      return state;
+      // Moving into a new phase
+      const result: DropAnimatingState = {
+        phase: 'DROP_ANIMATING',
+        completed,
+        dropDuration,
+        newHomeClientOffset,
+        dimensions: state.dimensions,
+      };
+
+      return result;
     }
 
-    invariant(
-      state.phase === 'DRAGGING',
-      `${action.type} received while not in DRAGGING phase`,
-    );
+    // Action will be used by responders to call consumers
+    // We can simply return to the idle state
+    if (action.type === 'DROP_COMPLETE') {
+      const { completed } = action.payload;
 
-    const result: ?MoveInDirectionResult = moveInDirection({
-      state,
-      type: action.type,
-    });
-
-    // cannot move in that direction
-    if (!result) {
-      return state;
+      return {
+        phase: 'IDLE',
+        completed,
+        shouldFlush: false,
+      };
     }
 
-    return update({
-      state,
-      impact: result.impact,
-      clientSelection: result.clientSelection,
-      scrollJumpRequest: result.scrollJumpRequest,
-    });
-  }
-
-  if (action.type === 'DROP_PENDING') {
-    const reason: DropReason = action.payload.reason;
-    invariant(
-      state.phase === 'COLLECTING',
-      'Can only move into the DROP_PENDING phase from the COLLECTING phase',
-    );
-
-    const newState: DropPendingState = {
-      // appeasing flow
-      phase: 'DROP_PENDING',
-      ...state,
-      // eslint-disable-next-line
-      phase: 'DROP_PENDING',
-      isWaiting: true,
-      reason,
-    };
-    return newState;
-  }
-
-  if (action.type === 'DROP_ANIMATE') {
-    const { completed, dropDuration, newHomeClientOffset } = action.payload;
-    invariant(
-      state.phase === 'DRAGGING' || state.phase === 'DROP_PENDING',
-      `Cannot animate drop from phase ${state.phase}`,
-    );
-
-    // Moving into a new phase
-    const result: DropAnimatingState = {
-      phase: 'DROP_ANIMATING',
-      completed,
-      dropDuration,
-      newHomeClientOffset,
-      dimensions: state.dimensions,
-    };
-
-    return result;
-  }
-
-  // Action will be used by responders to call consumers
-  // We can simply return to the idle state
-  if (action.type === 'DROP_COMPLETE') {
-    const { completed } = action.payload;
-
-    return {
-      phase: 'IDLE',
-      completed,
-      shouldFlush: false,
-    };
-  }
-
-  return state;
-};
+    return state;
+  };
+}

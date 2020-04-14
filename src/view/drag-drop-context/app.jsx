@@ -63,6 +63,9 @@ export type Props = {|
 
   // screen reader
   dragHandleUsageInstructions: string,
+
+  // combine threshold
+  combineThresholdDivisor?: number,
 |};
 
 const createResponders = (props: Props): Responders => ({
@@ -89,6 +92,7 @@ export default function App(props: Props) {
     sensors,
     nonce,
     dragHandleUsageInstructions,
+    combineThresholdDivisor,
   } = props;
   const lazyStoreRef: LazyStoreRef = useRef<?Store>(null);
 
@@ -162,6 +166,7 @@ export default function App(props: Props) {
         focusMarshal,
         getResponders,
         styleMarshal,
+        combineThresholdDivisor,
       }),
     [
       announce,
@@ -170,6 +175,7 @@ export default function App(props: Props) {
       focusMarshal,
       getResponders,
       styleMarshal,
+      combineThresholdDivisor,
     ],
   );
 

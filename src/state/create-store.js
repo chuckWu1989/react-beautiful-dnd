@@ -1,7 +1,7 @@
 // @flow
 /* eslint-disable no-underscore-dangle */
 import { applyMiddleware, createStore, compose } from 'redux';
-import reducer from './reducer';
+import getReducer from './reducer';
 import lift from './middleware/lift';
 import style from './middleware/style';
 import drop from './middleware/drop/drop-middleware';
@@ -37,6 +37,7 @@ type Args = {|
   getResponders: () => Responders,
   announce: Announce,
   autoScroller: AutoScroller,
+  combineThresholdDivisor?: number,
 |};
 
 export default ({
@@ -46,9 +47,10 @@ export default ({
   getResponders,
   announce,
   autoScroller,
+  combineThresholdDivisor,
 }: Args): Store =>
   createStore(
-    reducer,
+    getReducer(combineThresholdDivisor),
     composeEnhancers(
       applyMiddleware(
         // ## Debug middleware

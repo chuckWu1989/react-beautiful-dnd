@@ -30,7 +30,10 @@ function CommentArea(props: TCommentAreaProps) {
   return (
     <>
       <Container>
-        <DragDropContext onDragEnd={getOnDragEnd(data, setData)}>
+        <DragDropContext
+          onDragEnd={getOnDragEnd(data, setData)}
+          combineThresholdDivisor={4}
+        >
           <Droppable
             droppableId="chatboard"
             type="COLUMN"

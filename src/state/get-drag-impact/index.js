@@ -12,7 +12,6 @@ import type {
 } from '../../types';
 import getDroppableOver from '../get-droppable-over';
 import getDraggablesInsideDroppable from '../get-draggables-inside-droppable';
-import withDroppableScroll from '../with-scroll-change/with-droppable-scroll';
 import getReorderImpact from './get-reorder-impact';
 import getCombineImpact from './get-combine-impact';
 import noImpact from '../no-impact';
@@ -20,6 +19,7 @@ import { offsetRectByPosition } from '../rect';
 
 type Args = {|
   pageOffset: Position,
+  pageSelection: Position,
   draggable: DraggableDimension,
   // all dimensions in system
   draggables: DraggableDimensionMap,
@@ -27,16 +27,19 @@ type Args = {|
   previousImpact: DragImpact,
   viewport: Viewport,
   afterCritical: LiftEffect,
+  combineThresholdDivisor?: number,
 |};
 
 export default ({
   pageOffset,
+  pageSelection,
   draggable,
   draggables,
   droppables,
   previousImpact,
   viewport,
   afterCritical,
+  combineThresholdDivisor,
 }: Args): DragImpact => {
   const pageBorderBox: Rect = offsetRectByPosition(
     draggable.page.borderBox,
@@ -63,25 +66,19 @@ export default ({
     draggables,
   );
 
-  // Where the element actually is now.
-  // Need to take into account the change of scroll in the droppable
-  const pageBorderBoxWithDroppableScroll: Rect = withDroppableScroll(
-    destination,
-    pageBorderBox,
-  );
-
   // checking combine first so we combine before any reordering
   return (
     getCombineImpact({
-      pageBorderBoxWithDroppableScroll,
+      pageSelection,
       draggable,
       previousImpact,
       destination,
       insideDestination,
       afterCritical,
+      combineThresholdDivisor,
     }) ||
     getReorderImpact({
-      pageBorderBoxWithDroppableScroll,
+      pageSelection,
       draggable,
       destination,
       insideDestination,

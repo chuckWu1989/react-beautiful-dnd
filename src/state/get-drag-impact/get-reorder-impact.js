@@ -1,5 +1,5 @@
 // @flow
-import { type Rect } from 'css-box-model';
+import type { Position } from 'css-box-model';
 import type {
   DraggableId,
   DraggableDimension,
@@ -20,7 +20,7 @@ import calculateReorderImpact from '../calculate-drag-impact/calculate-reorder-i
 import getIsDisplaced from '../get-is-displaced';
 
 type Args = {|
-  pageBorderBoxWithDroppableScroll: Rect,
+  pageSelection: Position,
   draggable: DraggableDimension,
   destination: DroppableDimension,
   insideDestination: DraggableDimension[],
@@ -52,7 +52,7 @@ function atIndex({ draggable, closest, inHomeList }: AtIndexArgs): ?number {
 }
 
 export default ({
-  pageBorderBoxWithDroppableScroll: targetRect,
+  pageSelection,
   draggable,
   destination,
   insideDestination,
@@ -66,9 +66,7 @@ export default ({
     draggable.displaceBy,
   );
   const displacement: number = displacedBy.value;
-
-  const targetStart: number = targetRect[axis.start];
-  const targetEnd: number = targetRect[axis.end];
+  const targetSelection: number = pageSelection[axis.line];
 
   const withoutDragging: DraggableDimension[] = removeDraggableFromList(
     draggable,
@@ -102,23 +100,23 @@ export default ({
         // Continue to displace while targetEnd before the childCenter
         // Move once we *move forward past* the childCenter
         if (isDisplaced) {
-          return targetEnd <= childCenter;
+          return targetSelection <= childCenter;
         }
 
         // Has been moved backwards from where it started
         // Displace forwards when targetStart *moves backwards past* the displaced childCenter
-        return targetStart < childCenter - displacement;
+        return targetSelection < childCenter - displacement;
       }
 
       // Item has been shifted forward.
       // Remove displacement when targetEnd moves forward past the displaced center
       if (isDisplaced) {
-        return targetEnd <= childCenter + displacement;
+        return targetSelection <= childCenter + displacement;
       }
 
       // Item is behind the dragging item
       // We want to displace it if the targetStart goes *backwards past* the childCenter
-      return targetStart < childCenter;
+      return targetSelection < childCenter;
     },
   );
 
