@@ -22,6 +22,7 @@ type Props = {|
   sensors?: Sensor[],
   enableDefaultSensors?: ?boolean,
   combineThresholdDivisor?: number,
+  shouldStartCapture?: (draggableId: string) => boolean,
 |};
 
 // Reset any context that gets persisted across server side renders
@@ -48,6 +49,7 @@ export default function DragDropContext(props: Props) {
           enableDefaultSensors={props.enableDefaultSensors}
           combineThresholdDivisor={props.combineThresholdDivisor}
           sensors={props.sensors}
+          shouldStartCapture={props.shouldStartCapture}
           onBeforeCapture={props.onBeforeCapture}
           onBeforeDragStart={props.onBeforeDragStart}
           onDragStart={props.onDragStart}
