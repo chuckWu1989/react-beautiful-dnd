@@ -18,7 +18,6 @@ import removeDraggableFromList from '../remove-draggable-from-list';
 type Args = {|
   draggable: DraggableDimension,
   pageSelection: Position,
-  pageSelection: Position,
   previousImpact: DragImpact,
   destination: DroppableDimension,
   insideDestination: DraggableDimension[],

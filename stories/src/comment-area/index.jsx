@@ -24,6 +24,11 @@ const Container = styled.div`
   min-width: 100vw;
   display: inline-flex;
 `;
+const ListContainer = styled.div`
+  width: 100%;
+  height: 190px;
+  overflow-y: auto;
+`;
 
 function CommentArea(props: TCommentAreaProps) {
   const [data, setData] = React.useState(props.data);
@@ -46,9 +51,11 @@ function CommentArea(props: TCommentAreaProps) {
                 {...provided.droppableProps}
               >
                 <Article />
-                {data.map((item, index) => (
-                  <Popup {...item} key={item.id} index={index} />
-                ))}
+                <ListContainer>
+                  {data.map((item, index) => (
+                    <Popup {...item} key={item.id} index={index} />
+                  ))}
+                </ListContainer>
               </MobileContainer>
             )}
           </Droppable>

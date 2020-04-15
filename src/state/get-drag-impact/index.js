@@ -9,7 +9,9 @@ import type {
   DragImpact,
   Viewport,
   LiftEffect,
+  Scrollable,
 } from '../../types';
+import { add } from '../position';
 import getDroppableOver from '../get-droppable-over';
 import getDraggablesInsideDroppable from '../get-draggables-inside-droppable';
 import getReorderImpact from './get-reorder-impact';
@@ -65,26 +67,30 @@ export default ({
     destination.descriptor.id,
     draggables,
   );
+  const frame: ?Scrollable = destination.frame;
+  const pageSelectionWithDroppableScroll = frame
+    ? add(pageSelection, frame.scroll.diff.value)
+    : pageSelection;
 
   // checking combine first so we combine before any reordering
   return (
     getCombineImpact({
-      pageSelection,
       draggable,
       previousImpact,
       destination,
       insideDestination,
       afterCritical,
       combineThresholdDivisor,
+      pageSelection: pageSelectionWithDroppableScroll,
     }) ||
     getReorderImpact({
-      pageSelection,
       draggable,
       destination,
       insideDestination,
       last: previousImpact.displaced,
       viewport,
       afterCritical,
+      pageSelection: pageSelectionWithDroppableScroll,
     })
   );
 };

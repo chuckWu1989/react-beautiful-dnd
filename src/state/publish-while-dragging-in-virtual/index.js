@@ -15,6 +15,7 @@ import type {
   DroppableId,
 } from '../../types';
 import * as timings from '../../debug/timings';
+import { add } from '../position';
 import getDragImpact from '../get-drag-impact';
 import adjustAdditionsForScrollChanges from './adjust-additions-for-scroll-changes';
 import { toDraggableMap, toDroppableMap } from '../dimension-structures';
@@ -109,9 +110,15 @@ export default ({
         state.impact
       : onLiftImpact;
 
+  const pageSelection = add(
+    state.current.page.selection,
+    state.viewport.scroll.current,
+  );
+
   const impact: DragImpact = getDragImpact({
+    draggable,
+    pageSelection,
     pageOffset: state.current.page.offset,
-    draggable: dimensions.draggables[state.critical.draggable.id],
     draggables: dimensions.draggables,
     droppables: dimensions.droppables,
     previousImpact,
